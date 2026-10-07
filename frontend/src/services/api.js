@@ -6,7 +6,7 @@ import axios from "axios";
 
 // / ✅ Both URLs defined
 const LOCAL_API = "http://localhost:5000/api";
-const PRODUCTION_API = "https://vprotech-digital1.onrender.com/api";
+const PRODUCTION_API = "https://vprotech-internship-portal.onrender.com/api";
 
 // ✅ Toggle between local and production (change this to switch)
 const USE_LOCAL = false; // 👈 Set to true for local, false for production
