@@ -9,7 +9,7 @@ const LOCAL_API = "http://localhost:5000/api";
 const PRODUCTION_API = "https://vprotech-digital1.onrender.com/api";
 
 // ✅ Toggle between local and production (change this to switch)
-const USE_LOCAL = true; // 👈 Set to true for local, false for production
+const USE_LOCAL = false; // 👈 Set to true for local, false for production
 
 // ✅ The actual URL being used
 const API_URL = USE_LOCAL ? LOCAL_API : PRODUCTION_API;
