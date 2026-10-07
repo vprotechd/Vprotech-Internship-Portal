@@ -30,9 +30,39 @@ const answerSchema = new mongoose.Schema(
 
 const testAttemptSchema = new mongoose.Schema(
   {
+    // Existing registered-user support.
+    // Anonymous internship candidates do not have this field.
     student: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: false,
+      default: null,
+    },
+
+    // Public candidate details
+    candidateName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    candidateEmail: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+
+    candidatePhone: {
+      type: String,
+      required: false,
+      trim: true,
+      default: "",
+    },
+
+    application: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InternshipApplication",
       required: true,
     },
 
@@ -87,10 +117,15 @@ const testAttemptSchema = new mongoose.Schema(
   }
 );
 
-testAttemptSchema.index(
-  { student: 1, test: 1 },
-  { unique: false }
-);
+testAttemptSchema.index({
+  student: 1,
+  test: 1,
+});
+
+testAttemptSchema.index({
+  application: 1,
+  test: 1,
+});
 
 const TestAttempt = mongoose.model(
   "TestAttempt",

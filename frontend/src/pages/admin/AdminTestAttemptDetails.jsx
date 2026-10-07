@@ -121,6 +121,17 @@ const AdminTestAttemptDetails = () => {
   const test = attempt.test || {};
   const student = attempt.student || {};
 
+  const candidateName =
+    student.name ||
+    student.fullName ||
+    attempt.candidateName ||
+    "Unknown Student";
+
+  const candidateEmail =
+    student.email ||
+    attempt.candidateEmail ||
+    "—";
+
   return (
     <div className="admin-result-page">
 
@@ -160,13 +171,11 @@ const AdminTestAttemptDetails = () => {
             <span>Student</span>
 
             <strong>
-              {student.name ||
-                student.fullName ||
-                "Unknown Student"}
+              {candidateName}
             </strong>
 
             <small>
-              {student.email || "—"}
+              {candidateEmail}
             </small>
           </div>
 

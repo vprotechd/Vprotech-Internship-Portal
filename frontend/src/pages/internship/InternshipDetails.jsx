@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   AlertCircle,
@@ -14,7 +14,7 @@ import toast from "react-hot-toast";
 import {
   getInternshipProgramById,
   applyForInternship,
-  getMyInternshipApplications,
+  getPublicApplicationStatus,
 } from "../../services/internshipService";
 
 import "./InternshipDetails.css";
@@ -82,25 +82,25 @@ export default function InternshipDetails() {
     try {
       setApplicationLoading(true);
 
-      const data = await getMyInternshipApplications();
+      const data =
+        await getPublicApplicationStatus(id);
 
-      const applications = data?.applications || [];
-
-      const currentApplication = applications.find(
-        (application) =>
-          application?.program?._id === id ||
-          application?.program === id
-      );
-
-      setMyApplication(currentApplication || null);
+      if (
+        data?.success &&
+        data?.application
+      ) {
+        setMyApplication(
+          data.application
+        );
+      } else {
+        setMyApplication(null);
+      }
     } catch (err) {
       console.error(
-        "My internship application error:",
-        err
+        "Public internship application status error:",
+        err?.response?.data || err
       );
 
-      // If user is not logged in or has no application,
-      // simply show Apply Now.
       setMyApplication(null);
     } finally {
       setApplicationLoading(false);
@@ -560,11 +560,9 @@ export default function InternshipDetails() {
           <div className="internship-registration-notice" role="note">
             <AlertCircle size={20} />
             <p>
-              You must{" "}
-              <Link to="/register">register for an account</Link> and apply
-              for this internship before taking the test. Unregistered
-              applicants are not eligible; only approved applicants can start
-              the test.
+              No account registration is required. Apply using your
+              name, email, phone number and education details. After
+              admin approval, you can take the internship test.
             </p>
           </div>
 

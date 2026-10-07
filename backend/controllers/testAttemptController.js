@@ -11,35 +11,40 @@ import InternshipApplication from "../models/InternshipApplication.js";
 export const startTest = async (req, res) => {
   try {
     const { testId } = req.params;
-    const studentId = req.user._id;
 
-    // =====================================================
-    // FIND TEST
-    // =====================================================
+    const accessToken =
+      req.headers["x-internship-token"] ||
+      req.body?.accessToken;
 
-    const test = await Test.findById(testId);
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Please apply for this internship first.",
+      });
+    }
+
+    const test =
+      await Test.findById(testId);
 
     if (!test) {
       return res.status(404).json({
         success: false,
-        message: "Test not found",
+        message: "Test not found.",
       });
     }
 
-    // =====================================================
-    // CHECK INTERNSHIP APPLICATION
-    // ONLY APPROVED STUDENTS CAN START
-    // =====================================================
-
-    const application = await InternshipApplication.findOne({
-      program: test.program,
-      applicant: studentId,
-    });
+    const application =
+      await InternshipApplication.findOne({
+        program: test.program,
+        accessToken,
+      });
 
     if (!application) {
       return res.status(403).json({
         success: false,
-        message: "You have not applied for this internship.",
+        message:
+          "Invalid internship application access.",
       });
     }
 
@@ -52,113 +57,98 @@ export const startTest = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // CHECK TEST STATUS
-    // =====================================================
-
     if (test.status !== "published") {
       return res.status(400).json({
         success: false,
-        message: "This test is not currently available.",
+        message:
+          "This test is not currently available.",
       });
     }
 
-    // =====================================================
-    // CHECK TEST DATE
-    // =====================================================
-
     const now = new Date();
 
-    if (test.startDate && now < new Date(test.startDate)) {
+    if (
+      test.startDate &&
+      now < new Date(test.startDate)
+    ) {
       return res.status(400).json({
         success: false,
         message: "This test has not started yet.",
       });
     }
 
-    if (test.endDate && now > new Date(test.endDate)) {
+    if (
+      test.endDate &&
+      now > new Date(test.endDate)
+    ) {
       return res.status(400).json({
         success: false,
         message: "This test has already ended.",
       });
     }
 
-    // =====================================================
-    // CHECK ASSIGNED STUDENTS
-    // =====================================================
+    // Anonymous internship applicants are not checked against
+    // assignedStudents because that field contains User IDs.
+    // Public access is controlled by the approved application token.
 
-    if (
-      Array.isArray(test.assignedStudents) &&
-      test.assignedStudents.length > 0
-    ) {
-      const isAssigned = test.assignedStudents.some(
-        (id) => id.toString() === studentId.toString()
-      );
-
-      if (!isAssigned) {
-        return res.status(403).json({
-          success: false,
-          message: "You are not assigned to this test.",
-        });
-      }
-    }
-
-    // =====================================================
-    // CHECK EXISTING IN-PROGRESS ATTEMPT
-    // =====================================================
-
-    const existingAttempt = await TestAttempt.findOne({
-      student: studentId,
-      test: testId,
-      status: "in_progress",
-    });
-
-    if (existingAttempt) {
-      return res.status(200).json({
-        success: true,
-        message: "Existing test attempt found.",
-        attempt: existingAttempt,
-        test: {
-          _id: test._id,
-          title: test.title,
-          description: test.description,
-          duration: test.duration,
-          totalMarks: test.totalMarks,
-          passingMarks: test.passingMarks,
-          instructions: test.instructions,
-        },
+    let attempt =
+      await TestAttempt.findOne({
+        application: application._id,
+        test: testId,
+        status: "in_progress",
       });
+
+    if (!attempt) {
+      attempt =
+        await TestAttempt.create({
+          student:
+            application.applicant || null,
+
+          candidateName:
+            application.name,
+
+          candidateEmail:
+            application.email,
+
+          candidatePhone:
+            application.phone || "",
+
+          application:
+            application._id,
+
+          test: testId,
+
+          startedAt: new Date(),
+
+          answers: [],
+
+          score: 0,
+
+          percentage: 0,
+
+          passed: false,
+
+          status: "in_progress",
+        });
     }
-
-    // =====================================================
-    // CREATE NEW ATTEMPT
-    // =====================================================
-
-    const attempt = await TestAttempt.create({
-      student: studentId,
-      test: testId,
-      startedAt: new Date(),
-      answers: [],
-      score: 0,
-      percentage: 0,
-      passed: false,
-      status: "in_progress",
-    });
-
-    // =====================================================
-    // RESPONSE
-    // =====================================================
 
     return res.status(201).json({
       success: true,
-      message: "Test started successfully.",
+      message:
+        "Test started successfully.",
+
       attempt: {
         _id: attempt._id,
-        student: attempt.student,
-        test: attempt.test,
-        startedAt: attempt.startedAt,
-        status: attempt.status,
+        candidateName:
+          attempt.candidateName,
+        candidateEmail:
+          attempt.candidateEmail,
+        startedAt:
+          attempt.startedAt,
+        status:
+          attempt.status,
       },
+
       test: {
         _id: test._id,
         title: test.title,
@@ -170,11 +160,15 @@ export const startTest = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Start test error:", error);
+    console.error(
+      "Start public test error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to start test.",
+      message:
+        "Failed to start test.",
     });
   }
 };
@@ -182,53 +176,66 @@ export const startTest = async (req, res) => {
 // =====================================================
 // SUBMIT TEST
 // POST /api/test-attempts/:attemptId/submit
-// STUDENT
+// PUBLIC APPLICATION TOKEN REQUIRED
 // =====================================================
+
 export const submitTest = async (req, res) => {
   try {
     const { attemptId } = req.params;
-    const studentId = req.user._id;
 
-    // =====================================================
-    // FIND ATTEMPT
-    // =====================================================
+    const accessToken =
+      req.headers["x-internship-token"] ||
+      req.body?.accessToken;
 
-    const attempt = await TestAttempt.findById(attemptId);
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Application access is required.",
+      });
+    }
+
+    const attempt =
+      await TestAttempt.findById(
+        attemptId
+      );
 
     if (!attempt) {
       return res.status(404).json({
         success: false,
-        message: "Test attempt not found.",
+        message:
+          "Test attempt not found.",
       });
     }
 
-    // =====================================================
-    // CHECK OWNERSHIP
-    // =====================================================
+    const application =
+      await InternshipApplication.findOne({
+        _id: attempt.application,
+        accessToken,
+      });
 
-    if (attempt.student.toString() !== studentId.toString()) {
+    if (!application) {
       return res.status(403).json({
         success: false,
-        message: "You are not allowed to submit this attempt.",
+        message:
+          "You are not allowed to submit this attempt.",
       });
     }
 
-    // =====================================================
-    // CHECK ATTEMPT STATUS
-    // =====================================================
-
-    if (attempt.status !== "in_progress") {
+    if (
+      attempt.status !== "in_progress"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "This test attempt has already been submitted.",
+        message:
+          "This test attempt has already been submitted.",
       });
     }
 
-    // =====================================================
-    // GET TEST
-    // =====================================================
-
-    const test = await Test.findById(attempt.test);
+    const test =
+      await Test.findById(
+        attempt.test
+      );
 
     if (!test) {
       return res.status(404).json({
@@ -237,157 +244,161 @@ export const submitTest = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // VERIFY INTERNSHIP APPLICATION
-    // =====================================================
-
-    const application = await InternshipApplication.findOne({
-      program: test.program,
-      applicant: studentId,
-    });
-
-    if (!application) {
-      return res.status(403).json({
-        success: false,
-        message: "You have not applied for this internship.",
-      });
-    }
-
     if (application.status !== "approved") {
       return res.status(403).json({
         success: false,
-        message: "You are not approved to take this test.",
+        message:
+          "You are not approved to take this test.",
       });
     }
 
-    // =====================================================
-    // GET QUESTIONS
-    // IMPORTANT:
-    // Correct answers are fetched ONLY from database.
-    // Frontend cannot decide the result.
-    // =====================================================
+    const questions =
+      await Question.find({
+        test: test._id,
+      }).sort({
+        order: 1,
+        createdAt: 1,
+      });
 
-    const questions = await Question.find({
-      test: test._id,
-    }).sort({
-      order: 1,
-      createdAt: 1,
-    });
-
-    // =====================================================
-    // GET ANSWERS FROM FRONTEND
-    // =====================================================
-
-    const submittedAnswers = Array.isArray(req.body.answers)
-      ? req.body.answers
-      : [];
+    const submittedAnswers =
+      Array.isArray(req.body?.answers)
+        ? req.body.answers
+        : [];
 
     let score = 0;
 
-    // =====================================================
-    // EVALUATE ANSWERS
-    // =====================================================
+    const evaluatedAnswers =
+      questions.map((question) => {
+        const submitted =
+          submittedAnswers.find(
+            (answer) =>
+              answer?.question?.toString() ===
+              question._id.toString()
+          );
 
-    const evaluatedAnswers = questions.map((question) => {
-      const submitted = submittedAnswers.find(
-        (answer) =>
-          answer?.question?.toString() === question._id.toString()
-      );
+        const selectedAnswer =
+          submitted?.selectedAnswer !==
+          undefined
+            ? submitted.selectedAnswer
+            : null;
 
-      const selectedAnswer =
-        submitted?.selectedAnswer !== undefined
-          ? submitted.selectedAnswer
-          : null;
+        const isCorrect =
+          selectedAnswer !== null &&
+          selectedAnswer ===
+            question.correctAnswer;
 
-      const isCorrect =
-        selectedAnswer !== null &&
-        selectedAnswer === question.correctAnswer;
+        const marksObtained =
+          isCorrect
+            ? Number(
+                question.marks || 0
+              )
+            : 0;
 
-      const marksObtained = isCorrect
-        ? Number(question.marks || 0)
-        : 0;
+        score += marksObtained;
 
-      score += marksObtained;
-
-      return {
-        question: question._id,
-        selectedAnswer,
-        isCorrect,
-        marksObtained,
-      };
-    });
-
-    // =====================================================
-    // CALCULATE PERCENTAGE
-    // =====================================================
+        return {
+          question:
+            question._id,
+          selectedAnswer,
+          isCorrect,
+          marksObtained,
+        };
+      });
 
     const percentage =
       Number(test.totalMarks) > 0
         ? Number(
-            ((score / Number(test.totalMarks)) * 100).toFixed(2)
+            (
+              (score /
+                Number(test.totalMarks)) *
+              100
+            ).toFixed(2)
           )
         : 0;
 
-    // =====================================================
-    // CHECK PASS / FAIL
-    // =====================================================
-
-    const passed = score >= Number(test.passingMarks);
-
-    // =====================================================
-    // CHECK TIME
-    // =====================================================
+    const passed =
+      score >=
+      Number(test.passingMarks);
 
     const elapsedMinutes =
-      (Date.now() - new Date(attempt.startedAt).getTime()) /
+      (Date.now() -
+        new Date(
+          attempt.startedAt
+        ).getTime()) /
       (1000 * 60);
 
-    const expired = elapsedMinutes > Number(test.duration);
+    const expired =
+      elapsedMinutes >
+      Number(test.duration);
 
-    // =====================================================
-    // SAVE ATTEMPT
-    // =====================================================
+    attempt.answers =
+      evaluatedAnswers;
 
-    attempt.answers = evaluatedAnswers;
-    attempt.score = score;
-    attempt.percentage = percentage;
-    attempt.passed = passed;
-    attempt.submittedAt = new Date();
+    attempt.score =
+      score;
 
-    attempt.status = expired ? "expired" : "submitted";
+    attempt.percentage =
+      percentage;
+
+    attempt.passed =
+      passed;
+
+    attempt.submittedAt =
+      new Date();
+
+    attempt.status =
+      expired
+        ? "expired"
+        : "submitted";
 
     await attempt.save();
 
-    // =====================================================
-    // RESPONSE
-    // =====================================================
-
     return res.status(200).json({
       success: true,
+
       message: expired
         ? "Test submitted after the allowed time."
         : "Test submitted successfully.",
 
       result: {
-        attemptId: attempt._id,
+        attemptId:
+          attempt._id,
+        candidateName:
+          attempt.candidateName,
+        candidateEmail:
+          attempt.candidateEmail,
         score,
-        totalMarks: test.totalMarks,
+        totalMarks:
+          test.totalMarks,
         percentage,
-        passingMarks: test.passingMarks,
+        passingMarks:
+          test.passingMarks,
         passed,
-        status: attempt.status,
-        submittedAt: attempt.submittedAt,
+        status:
+          attempt.status,
+        submittedAt:
+          attempt.submittedAt,
       },
     });
   } catch (error) {
-    console.error("Submit test error:", error);
+    console.error(
+      "Submit public test error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to submit test.",
+      message:
+        "Failed to submit test.",
     });
   }
 };
+
+// =====================================================
+// GET MY ATTEMPT
+// GET /api/test-attempts/my/:attemptId
+// REGISTERED USERS ONLY
+// =====================================================
 
 // =====================================================
 // GET MY ATTEMPT

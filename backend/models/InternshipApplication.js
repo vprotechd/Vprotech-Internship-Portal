@@ -8,10 +8,13 @@ const internshipApplicationSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Kept for existing/logged-in users, but NOT required
+    // for public internship applicants.
     applicant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: false,
+      default: null,
     },
 
     name: {
@@ -37,6 +40,16 @@ const internshipApplicationSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    // Anonymous-student access token.
+    // Sparse keeps existing old documents without this field valid.
+    accessToken: {
+      type: String,
+      required: true,
+      unique: true,
+      sparse: true,
+      index: true,
     },
 
     status: {

@@ -1,6 +1,7 @@
 
 import InternshipProgram from "../models/InternshipProgram.js";
 import InternshipApplication from "../models/InternshipApplication.js";
+import crypto from "crypto";
 
 // =====================================================
 // APPLY FOR INTERNSHIP
@@ -10,37 +11,21 @@ import InternshipApplication from "../models/InternshipApplication.js";
 export const applyForInternship = async (req, res) => {
   try {
     console.log("====================================");
-    console.log("📩 Internship Application Received");
+    console.log("📩 Public Internship Application Received");
     console.log("BODY:", req.body);
     console.log("====================================");
 
     const { id } = req.params;
+    const { name, email, phone, education } = req.body || {};
 
-    const {
-      name,
-      email,
-      phone,
-      education,
-    } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !phone || !education) {
+    if (!name?.trim() || !email?.trim() || !phone?.trim() || !education?.trim()) {
       return res.status(400).json({
         success: false,
-        message:
-          "Name, email, phone and education are required",
-        received: {
-          name,
-          email,
-          phone,
-          education,
-        },
+        message: "Name, email, phone and education are required",
       });
     }
 
-    // Find internship program
-    const program =
-      await InternshipProgram.findById(id);
+    const program = await InternshipProgram.findById(id);
 
     if (!program) {
       return res.status(404).json({
@@ -49,38 +34,63 @@ export const applyForInternship = async (req, res) => {
       });
     }
 
-    // Only active programs can receive applications
     if (program.status !== "active") {
       return res.status(400).json({
         success: false,
-        message:
-          "This internship program is not currently active",
+        message: "This internship program is not currently active",
       });
     }
 
-    // Create application
-    const application =
-      await InternshipApplication.create({
-        program: program._id,
+    const normalizedEmail = email.trim().toLowerCase();
 
-        applicant:
-          req.user?._id || undefined,
+    // Prevent duplicate applications for the same program/email.
+    // If an old application has no token, create one now so it can
+    // use the new passwordless student flow.
+    let application = await InternshipApplication.findOne({
+      program: program._id,
+      email: normalizedEmail,
+    });
 
-        name: name.trim(),
+    if (application) {
+      if (!application.accessToken) {
+        application.accessToken = crypto.randomBytes(32).toString("hex");
+        await application.save();
+      }
 
-        email: email.trim().toLowerCase(),
-
-        phone: phone.trim(),
-
-        education: education.trim(),
-
-        // Application starts as pending.
-        // Admin must approve it before test access.
-        status: "pending",
+      return res.status(200).json({
+        success: true,
+        message:
+          application.status === "approved"
+            ? "You have already applied and your application is approved."
+            : "You have already applied for this internship. Please wait for admin approval.",
+        application: {
+          _id: application._id,
+          program: application.program,
+          name: application.name,
+          email: application.email,
+          phone: application.phone,
+          education: application.education,
+          status: application.status,
+        },
+        accessToken: application.accessToken,
       });
+    }
+
+    const accessToken = crypto.randomBytes(32).toString("hex");
+
+    application = await InternshipApplication.create({
+      program: program._id,
+      applicant: req.user?._id || null,
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone.trim(),
+      education: education.trim(),
+      accessToken,
+      status: "pending",
+    });
 
     console.log(
-      "✅ Internship application created:",
+      "✅ Public internship application created:",
       application._id
     );
 
@@ -88,22 +98,91 @@ export const applyForInternship = async (req, res) => {
       success: true,
       message:
         "Internship application submitted successfully. Please wait for admin approval.",
+      application: {
+        _id: application._id,
+        program: application.program,
+        name: application.name,
+        email: application.email,
+        phone: application.phone,
+        education: application.education,
+        status: application.status,
+      },
+      accessToken,
+    });
+  } catch (error) {
+    console.error("❌ Apply internship error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit internship application",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : undefined,
+    });
+  }
+};
+
+// =====================================================
+// PUBLIC - GET APPLICATION STATUS
+// GET /api/internship/application-status
+// No account/login required.
+// The access token is issued when the student applies.
+// =====================================================
+export const getPublicApplicationStatus = async (req, res) => {
+  try {
+    const accessToken =
+      req.headers["x-internship-token"] ||
+      req.query.accessToken;
+
+    const programId =
+      req.query.programId;
+
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Application access token is required.",
+      });
+    }
+
+    const query = {
+      accessToken,
+    };
+
+    if (programId) {
+      query.program = programId;
+    }
+
+    const application =
+      await InternshipApplication.findOne(query)
+        .populate(
+          "program",
+          "title domain duration description eligibility status"
+        )
+        .select(
+          "_id program name email phone education status createdAt updatedAt"
+        );
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Internship application not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
       application,
     });
   } catch (error) {
     console.error(
-      "❌ Apply internship error:",
+      "❌ Public application status error:",
       error
     );
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to submit internship application",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : undefined,
+      message: "Failed to fetch application status.",
     });
   }
 };

@@ -45,26 +45,62 @@ export default function InternshipTest() {
     try {
       setLoading(true);
 
-      const data = await getInternshipTest(id);
+      const token =
+        localStorage.getItem(
+          "internshipAccessToken"
+        );
 
-      console.log("Internship test response:", data);
+      if (!token) {
+        toast.error(
+          "Please apply for this internship first."
+        );
+
+        navigate(`/internship/${id}`);
+        return;
+      }
+
+      const data =
+        await getInternshipTest(id);
+
+      console.log(
+        "Internship test response:",
+        data
+      );
 
       if (!data?.success) {
         toast.error(
-          data?.message || "Unable to load test."
+          data?.message ||
+            "Unable to load test."
         );
         return;
       }
 
-      setTest(data.test || null);
-      setQuestions(data.questions || []);
+      setTest(
+        data.test || null
+      );
+
+      setQuestions(
+        data.questions || []
+      );
     } catch (error) {
-      console.error("Fetch test error:", error);
+      console.error(
+        "Fetch test error:",
+        error?.response?.data || error
+      );
 
       toast.error(
         error?.response?.data?.message ||
           "Unable to load internship test."
       );
+
+      // If access is invalid/expired, return to the
+      // internship application page.
+      if (
+        error?.response?.status === 401 ||
+        error?.response?.status === 403
+      ) {
+        navigate(`/internship/${id}`);
+      }
     } finally {
       setLoading(false);
     }

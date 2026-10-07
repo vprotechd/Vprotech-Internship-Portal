@@ -645,33 +645,44 @@ export const deleteTest = async (req, res) => {
 export const getInternshipTest = async (req, res) => {
   try {
     const { programId } = req.params;
-    const studentId = req.user._id;
 
-    // Check student's internship application
-    const application = await InternshipApplication.findOne({
-      program: programId,
-      applicant: studentId,
-    });
+    const accessToken =
+      req.headers["x-internship-token"] ||
+      req.query.accessToken;
+
+    if (!accessToken) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Please apply for this internship first.",
+      });
+    }
+
+    const application =
+      await InternshipApplication.findOne({
+        program: programId,
+        accessToken,
+      });
 
     if (!application) {
       return res.status(403).json({
         success: false,
         message:
-          "You have not applied for this internship.",
+          "Invalid internship application access.",
       });
     }
 
-    // Only admin-approved students can access test
     if (application.status !== "approved") {
       return res.status(403).json({
         success: false,
         message:
-          "Your internship application has not been approved for the test yet.",
+          application.status === "pending"
+            ? "Your internship application is still waiting for admin approval."
+            : "Your internship application was rejected.",
         status: application.status,
       });
     }
 
-    // Find published test for this internship
     const test = await Test.findOne({
       program: programId,
       status: "published",
@@ -688,34 +699,48 @@ export const getInternshipTest = async (req, res) => {
       });
     }
 
-    // Check test dates
     const now = new Date();
 
-    if (test.startDate && now < new Date(test.startDate)) {
+    if (
+      test.startDate &&
+      now < new Date(test.startDate)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "The test has not started yet.",
+        message:
+          "The test has not started yet.",
       });
     }
 
-    if (test.endDate && now > new Date(test.endDate)) {
+    if (
+      test.endDate &&
+      now > new Date(test.endDate)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "The test has ended.",
+        message:
+          "The test has ended.",
       });
     }
 
-    // Get questions
-    const questions = await Question.find({
-      test: test._id,
-    })
-      .select(
-        "_id questionText options marks order"
-      )
-      .sort({ order: 1 });
+    const questions =
+      await Question.find({
+        test: test._id,
+      })
+        .select(
+          "_id questionText options marks order"
+        )
+        .sort({ order: 1 });
 
     return res.status(200).json({
       success: true,
+
+      candidate: {
+        name: application.name,
+        email: application.email,
+        phone: application.phone,
+      },
+
       test: {
         _id: test._id,
         title: test.title,
@@ -726,6 +751,7 @@ export const getInternshipTest = async (req, res) => {
         instructions: test.instructions,
         program: test.program,
       },
+
       questions,
     });
   } catch (error) {
@@ -736,7 +762,8 @@ export const getInternshipTest = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Failed to load internship test",
+      message:
+        "Failed to load internship test",
     });
   }
 };

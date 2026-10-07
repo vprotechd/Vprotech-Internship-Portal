@@ -7,6 +7,7 @@ import {
   updateInternshipProgram,
   deleteInternshipProgram,
   applyForInternship,
+  getPublicApplicationStatus,
   getAllInternshipApplications,
   updateInternshipApplicationStatus,
 } from "../controllers/internshipController.js";
@@ -21,8 +22,16 @@ const router = express.Router();
 
 router.post(
   "/programs/:id/apply",
-  protect,
   applyForInternship
+);
+
+// =====================================================
+// PUBLIC APPLICATION STATUS
+// =====================================================
+
+router.get(
+  "/application-status",
+  getPublicApplicationStatus
 );
 
 // =====================================================

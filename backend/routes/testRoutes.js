@@ -8,6 +8,7 @@ import {
   deleteTest,
   getInternshipTest,
 } from "../controllers/testController.js";
+
 import { startTest } from "../controllers/testAttemptController.js";
 
 import { protect, admin } from "../middleware/auth.js";
@@ -16,17 +17,17 @@ const router = express.Router();
 
 // =====================================================
 // STUDENT - INTERNSHIP TEST
+// PUBLIC APPLICATION TOKEN REQUIRED
+// No account/login required.
 // =====================================================
 
 router.get(
   "/internship/:programId",
-  protect,
   getInternshipTest
 );
 
 router.post(
   "/:testId/start",
-  protect,
   startTest
 );
 

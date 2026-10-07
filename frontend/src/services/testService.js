@@ -1,123 +1,180 @@
 import axiosClient from "./api";
 
 // =====================================================
-// STUDENT
+// PUBLIC STUDENT TEST SERVICES
+// Application token replaces student login.
 // =====================================================
 
-// Get available test for internship program
-export const getInternshipTest = async (programId) => {
-  const response = await axiosClient.get(
-    `/tests/internship/${programId}`
+const getInternshipToken = () =>
+  localStorage.getItem(
+    "internshipAccessToken"
   );
+
+const publicHeaders = () => {
+  const token =
+    getInternshipToken();
+
+  return token
+    ? {
+        "x-internship-token": token,
+      }
+    : {};
+};
+
+// Get available test for internship program
+export const getInternshipTest = async (
+  programId
+) => {
+  const response =
+    await axiosClient.get(
+      `/tests/internship/${programId}`,
+      {
+        headers: publicHeaders(),
+      }
+    );
 
   return response.data;
 };
 
 // Start test
-export const startTest = async (testId) => {
-  const response = await axiosClient.post(
-    `/tests/${testId}/start`
-  );
+export const startTest = async (
+  testId
+) => {
+  const token =
+    getInternshipToken();
+
+  const response =
+    await axiosClient.post(
+      `/test-attempts/start/${testId}`,
+      {
+        accessToken: token,
+      },
+      {
+        headers: publicHeaders(),
+      }
+    );
 
   return response.data;
 };
 
 // Submit test
-export const submitTest = async (attemptId, answers) => {
-  const response = await axiosClient.post(
-    `/test-attempts/${attemptId}/submit`,
-    {
-      answers,
-    }
-  );
+export const submitTest = async (
+  attemptId,
+  answers
+) => {
+  const token =
+    getInternshipToken();
+
+  const response =
+    await axiosClient.post(
+      `/test-attempts/${attemptId}/submit`,
+      {
+        answers,
+        accessToken: token,
+      },
+      {
+        headers: publicHeaders(),
+      }
+    );
 
   return response.data;
 };
 
-// Get single attempt
-export const getMyAttempt = async (attemptId) => {
-  const response = await axiosClient.get(
-    `/test-attempts/my/${attemptId}`
-  );
+// =====================================================
+// Existing registered-user services
+// =====================================================
+
+export const getMyAttempt = async (
+  attemptId
+) => {
+  const response =
+    await axiosClient.get(
+      `/test-attempts/my/${attemptId}`
+    );
 
   return response.data;
 };
 
-// Get any student attempt - admin
-export const getAdminAttempt = async (attemptId) => {
-  const response = await axiosClient.get(
-    `/test-attempts/admin/${attemptId}`
-  );
-
-  return response.data;
-};
-
-// Get all my attempts
 export const getMyAttempts = async () => {
-  const response = await axiosClient.get(
-    `/test-attempts/my`
-  );
+  const response =
+    await axiosClient.get(
+      `/test-attempts/my`
+    );
 
   return response.data;
 };
-
 
 // =====================================================
 // ADMIN
 // =====================================================
 
-// Create test
+export const getAdminAttempt = async (
+  attemptId
+) => {
+  const response =
+    await axiosClient.get(
+      `/test-attempts/admin/${attemptId}`
+    );
+
+  return response.data;
+};
+
 export const createTest = async (data) => {
-  const response = await axiosClient.post(
-    `/tests`,
-    data
-  );
+  const response =
+    await axiosClient.post(
+      `/tests`,
+      data
+    );
 
   return response.data;
 };
 
-// Get all tests
 export const getAllTests = async () => {
-  const response = await axiosClient.get(
-    `/tests`
-  );
+  const response =
+    await axiosClient.get(
+      `/tests`
+    );
 
   return response.data;
 };
 
-// Get test by ID
 export const getTestById = async (id) => {
-  const response = await axiosClient.get(
-    `/tests/${id}`
-  );
+  const response =
+    await axiosClient.get(
+      `/tests/${id}`
+    );
 
   return response.data;
 };
 
-// Update test
-export const updateTest = async (id, data) => {
-  const response = await axiosClient.put(
-    `/tests/${id}`,
-    data
-  );
+export const updateTest = async (
+  id,
+  data
+) => {
+  const response =
+    await axiosClient.put(
+      `/tests/${id}`,
+      data
+    );
 
   return response.data;
 };
 
-// Delete test
 export const deleteTest = async (id) => {
-  const response = await axiosClient.delete(
-    `/tests/${id}`
-  );
+  const response =
+    await axiosClient.delete(
+      `/tests/${id}`
+    );
 
   return response.data;
 };
 
-// Get all student attempts - admin
-export const getAllAttempts = async () => {
-  const response = await axiosClient.get(
-    `/test-attempts/all`
-  );
+export const getAllAttempts =
+  async () => {
+    const response =
+      await axiosClient.get(
+        `/test-attempts/all`
+      );
 
-  return response.data;
-};
+    return response.data;
+  };

@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-   startTest,
+  startTest,
   submitTest,
   getMyAttempt,
   getMyAttempts,
@@ -13,11 +13,47 @@ import { protect, admin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/start/:testId", protect, startTest);
-router.post("/:attemptId/submit", protect, submitTest);
-router.get("/my/:attemptId", protect, getMyAttempt);
-router.get("/my", protect, getMyAttempts);
-router.get("/all", protect, admin, getAllAttempts);
+// =====================================================
+// PUBLIC STUDENT TEST ROUTES
+// Application token is validated by the controller.
+// =====================================================
+
+router.post(
+  "/start/:testId",
+  startTest
+);
+
+router.post(
+  "/:attemptId/submit",
+  submitTest
+);
+
+// =====================================================
+// EXISTING REGISTERED-USER ROUTES
+// =====================================================
+
+router.get(
+  "/my/:attemptId",
+  protect,
+  getMyAttempt
+);
+
+router.get(
+  "/my",
+  protect,
+  getMyAttempts
+);
+
+// =====================================================
+// ADMIN
+// =====================================================
+
+router.get(
+  "/all",
+  protect,
+  admin,
+  getAllAttempts
+);
 
 router.get(
   "/admin/:attemptId",

@@ -55,11 +55,13 @@ const AdminTestAttempts = () => {
       attempt.student?.name ||
       attempt.student?.fullName ||
       attempt.user?.name ||
+      attempt.candidateName ||
       "";
 
     const studentEmail =
       attempt.student?.email ||
       attempt.user?.email ||
+      attempt.candidateEmail ||
       "";
 
     const testTitle =
@@ -273,6 +275,17 @@ const AdminTestAttempts = () => {
                   attempt.user ||
                   {};
 
+                const candidateName =
+                  student.name ||
+                  student.fullName ||
+                  attempt.candidateName ||
+                  "Unknown Student";
+
+                const candidateEmail =
+                  student.email ||
+                  attempt.candidateEmail ||
+                  "—";
+
                 const percentage =
                   attempt.percentage ?? 0;
 
@@ -283,13 +296,11 @@ const AdminTestAttempts = () => {
                       <div className="student-info">
 
                         <strong>
-                          {student.name ||
-                            student.fullName ||
-                            "Unknown Student"}
+                          {candidateName}
                         </strong>
 
                         <span>
-                          {student.email || "—"}
+                          {candidateEmail}
                         </span>
 
                       </div>
