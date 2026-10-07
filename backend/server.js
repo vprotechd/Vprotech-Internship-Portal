@@ -35,9 +35,10 @@ app.use(
 // Middleware
 app.use(cors({
   origin: [
-    "http://localhost:5173",
-    "https://vprotech-digital.onrender.com"
-  ],
+  "http://localhost:5173",
+  "https://vprotech-digital.onrender.com",
+  "https://vprotech-internship-portal-1.onrender.com"
+],
   credentials: true,
 }));
 app.use(express.json());
